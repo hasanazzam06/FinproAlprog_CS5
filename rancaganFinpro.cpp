@@ -7,10 +7,6 @@
 #include <vector>
 #include <algorithm>
 #include <cctype> 
-#include "json.hpp"
-
-
-using json = nlohmann::json;
 
 using namespace std;
    		
@@ -41,19 +37,21 @@ class Log{
 class User{
 	private:
 		string name;
-		string ID;
 		string RFID;
+		string status;
 		
 	public:
-		User(string n,string m, string o){
+		User(string n,string m, string o, string p){
 			name = n;
 			ID = m;
 			RFID = o;
+			status = p;
 		}
 		
 		string getName() const{ return name; }
 		string getRFID() const{ return RFID; }
 		string getID() const{ return ID; }
+		string getStatus() const{return status;}
 };
 
 vector<Log> logs;
@@ -76,6 +74,10 @@ void insertionSort(vector<Log>& listLog) {
     }
 }
 
+//void shortlainya(){
+//	
+//}
+
 string getCurrentTime() {
     time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)
     tm* localTime = localtime(&now); // ubah jadi struct waktu lokal
@@ -85,7 +87,6 @@ string getCurrentTime() {
     return ss.str();
     
 }
-
 
 string toUpper(string str) {
     transform(str.begin(), str.end(), str.begin(), ::toupper);
@@ -134,22 +135,22 @@ int readFileBiner(){
 	return status;
 }
 
-int exportJSON(){
-	ofstream file("logs.json");
-	
-	if(file.is_open()){
-		file<<"[\n";
-		for (const auto& log:logs) {
-        	file << "  {\n";
-        	file << "    \"RFID\": \"" << log.getRFID() << "\",\n";
-        	file << "    \"Action\": \"" << log.getAction() << "\",\n";
-        	file << "    \"Time\": \"" << log.getTime() << "\"\n";
-        	file << "  }";
-        if (i != logs.size() - 1) file << ",";
-        file << "\n";
-    	}
-	}
-}
+//int exportJSON(){
+//	ofstream file("logs.json");
+//	
+//	if(file.is_open()){
+//		file<<"[\n";
+//		for (const auto& log:logs) {
+//        	file << "  {\n";
+//        	file << "    \"RFID\": \"" << log.getRFID() << "\",\n";
+//        	file << "    \"Action\": \"" << log.getAction() << "\",\n";
+//        	file << "    \"Time\": \"" << log.getTime() << "\"\n";
+//        	file << "  }";
+//        if (i != logs.size() - 1) file << ",";
+//        file << "\n";
+//    	}
+//	}
+//}
 
 string addLog(string param){
 	string message;
@@ -217,13 +218,27 @@ string database(){
 	message = "List anggota yg terdaftar";
 	
 	for(const auto& data:datas){
-		
+		message+=data.getName() + " " + data.getRFID();
 	}
 	
 	if(datas.empty()){
 		message = "tidak ada Anggota yg terdaftar";
 	}
 	
+	return message;
+}
+
+string clear(){
+	string message;
+	logs.clear();
+	
+	FILE* file = fopen("logsBiner.bin", "wb");
+	
+    if (file) {
+        fclose(file);
+    }
+	
+	message = "seluruh history log sudah terhapus.....";
 	return message;
 }
 
@@ -242,8 +257,6 @@ string help() {
     return message;
 }
 	
-
-
 string processRequest(string recvMessage){
 	string request, param, sendMessage;
 	
@@ -259,8 +272,10 @@ string processRequest(string recvMessage){
 		sendMessage = listLogs();
 	}else if(request == "EXPORT_JSON"){
 		sendMessage = exportJSON();
-	}else if(request == "EXPORT_BINER"){
+	}else if(request == "DATABASE"){
 		sendMessage = database();
+	}else if(request == "CLEAR"){
+		sendMessage = clear();
 	}else if(request == "HELP"){
 		sendMessage = help();
 	}else if(request == "SHUTDOWN"){

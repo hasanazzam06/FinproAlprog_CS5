@@ -105,6 +105,7 @@ int exportBiner(string param){
 		fwrite(temp, sizeof(temp),1,file);
 		
 		fclose(file);
+		
 		status = 1;	
 	}
 	

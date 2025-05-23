@@ -3,6 +3,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 #include <winsock2.h>
 
 using namespace std;
@@ -14,11 +15,14 @@ string getCurrentTime() {
     time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)
     tm* localTime = localtime(&now); // ubah jadi struct waktu lokal
     
-    cout<<now;
-
     stringstream ss;
-    ss << put_time(localTime, "%Y-%m-%d %H:%M:%S"); // format waktu jadi string
+    ss << put_time(localTime, "%Y-%m-%d->%H%M:%S"); // format waktu jadi string
     return ss.str();
+}
+
+string toUpper(string str) {
+    transform(str.begin(), str.end(), str.begin(), ::toupper);
+    return str;
 }
 
 int main() {
@@ -27,7 +31,7 @@ int main() {
     SOCKET client_socket;
     struct sockaddr_in server;
     int recv_size;
-    char messageRecv[100];
+    char messageRecv[1000];
     string messageSend,phars = "0";
     
     cout << "Memulai Winsock...\n";
@@ -64,15 +68,16 @@ int main() {
     	cout << "Request: ";
    		getline(cin, messageSend);
    		
-//   		ADD_LOG <RFID> <TIMESTAMP>
-//   		GET_SHORTING_LOGS
-//   		GET_LOCAL_SHORTING_LOGS
-//   		SEARCH_LOG <ID/RFID/NAME>
-//   		EXPORT_JSON <LOCAL/GLOBAL>
-//   		EXPORT_BINER <LOCAL/GLOBAL>
-//   		SHUTDOWN 
-
-		
+   		messageSend = toUpper(messageSend);
+   		
+   		string temp;
+   		
+   		stringstream ss(messageSend);
+   		getline(ss,temp,' ');
+   		
+   		if(temp == "ADD_LOG"){
+   			messageSend += " "+ getCurrentTime();
+		}
 
     	send(client_socket, messageSend.c_str(), messageSend.length(), 0);
     

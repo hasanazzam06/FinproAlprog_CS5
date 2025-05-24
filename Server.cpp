@@ -3,42 +3,83 @@
 #include <sstream>
 #include <vector>
 #include <winsock2.h>
+#include <fstream>
+#include "json.hpp"
+#include <algorithm>
 
 using namespace std;
+using json = nlohmann::json;
 
 #define PORT 8888
 
-//	ADD_LOG <RFID> <TIMESTAMP> <IN/OUT>
-//   	GET_SHORTING_LOGS <LOCAL/GLOBAL>
-//   	SEARCH_LOG <ID/RFID/NAME>
-//  	EXPORT_JSON <LOCAL/GLOBAL>
-//   	EXPORT_BINER <LOCAL/GLOBAL>
-//   	SHUTDOWN
-   		
+
+
 class Log{
 	private:
 		string RFID;
-		string time;
+		string timestamp;
+        string name;
 		string action;
 	public:
-		Log(string param){
-			
- 			stringstream ss(param);
- 			getline(ss, RFID,' ');
- 			getline(ss, time,' ');
- 			getline(ss, action,' ');
-		}
+        Log(string param){
+            stringstream ss(param);
+            getline(ss, RFID,' ');
+            getline(ss, name, ' ');
+            getline(ss, timestamp,' ');
+            getline(ss, action,' ');
+        }
+
+        Log(string rfid, string name, string time, string action)
+        : RFID(rfid), name(name), timestamp(time), action(action) {}
 		
 		string getRFID() const { return RFID; }
-    	string getTime() const { return time; }
+    	string getTime() const { return timestamp; }
     	string getAction() const { return action; }
-    	
+    	string getName() const { return name; }
     	string toString() const {
-        return "RFID: " + RFID + ", Time: " + time + ", Action: " + action;
+        return "RFID: " + getRFID() + ", Name: " + getName() + ", Timestamp: " +  getTime() + ", Action: " + getAction();
     	}
 };
 
 vector<Log> logs;
+
+unordered_map<string, string> rfidToName;
+
+struct LogRaw {
+    char rfid[6];
+    char time[21];
+    char action[10];
+    char name[30];
+};
+
+void loadDatabaseFast(const string& filename = "database.json") {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Gagal membuka file.\n";
+        return;
+    }
+
+    json db;
+    file >> db;
+
+    for (const auto& entry : db) {
+        string rfid = entry["rfid"].get<string>();
+        string name = entry["name"].get<string>();
+        
+        rfidToName[rfid] = name;
+    }
+}
+
+string SearchRFID(string message) {
+    auto it = rfidToName.find(message);
+    if (it != rfidToName.end()) {
+        return it->second; // kembalikan nama sebenarnya
+    }
+    return "Tidak dikenal";
+}
+
+unordered_map<string, string> lastActionByRFID;
+
 
 void insertionSort(std::vector<Log>& listLog) {
     int n = listLog.size();
@@ -53,50 +94,189 @@ void insertionSort(std::vector<Log>& listLog) {
     }
 }
 
-string addLog(string param){
-	string message;
-	
-	Log newLog(param);
-	logs.push_back(newLog);
-	
-	message = "Add log berhasil -> " + newLog.toString();
- 	return message;
-}
-
-string getLogs(string param){
-	string type,message = "";
- 	stringstream ss(param);
- 	getline(ss, type,' ');
- 	
- 	vector<Log> temp = logs;
- 	
- 	insertionSort(temp);
- 	
- 	for(const auto& log:temp){
- 		message += log.getRFID() + " " + log.getTime() + " " + log.getAction() + "\n";
-	}
-	
-	if (message.empty()) {
-        message = "Tidak ada log.\n";
-        
-        
+void loadAction(){
+    for (const auto& log : logs) {
+        lastActionByRFID[log.getRFID()] = log.getAction();
     }
+}
+
+string addLog(string param){
+    string message;
+
+    // Ambil RFID dan waktu dari param
+    stringstream ss(param);
+    string rfid, date, time, timestamp;
+    ss >> rfid >> date >> time;
+    timestamp = date + ";" + time;
+
+    string action;
+    if (lastActionByRFID.find(rfid) == lastActionByRFID.end() || lastActionByRFID[rfid] == "Keluar") {
+        action = "Masuk";
+    } else {
+        action = "Keluar";
+    }
+
+    lastActionByRFID[rfid] = action;
+    string name = SearchRFID(rfid);
+
+    Log newLog(rfid, name, timestamp, action); 
+
+    logs.push_back(newLog);
+
+    message = "Add log berhasil -> " + newLog.toString();
+    return message;
+}
+
+// string getLogs(string param){
+// 	string type,message = "";
+//  	stringstream ss(param);
+//  	getline(ss, type,' ');
  	
- 	return message;
+//  	vector<Log> temp = logs;
+ 	
+//  	insertionSort(temp);
+ 	
+//  	for(const auto& log:temp){
+//  		message += log.getRFID() + " " + log.getName() + " " + log.getTime() + " " + log.getAction() + "\n";
+// 	}
+	
+// 	if (message.empty()) {
+//         message = "Tidak ada log.\n";
+        
+        
+//     }
+ 	
+//  	return message;
+// }
+
+// vector<Log> readLogsFromBinary(const string& filename) {
+//     vector<Log> result;
+//     ifstream file(filename, ios::binary);
+//     if (!file.is_open()) {
+//         cerr << "Gagal membuka file.\n";
+//         return result;
+//     }
+
+//     LogRaw raw;
+    
+//     while (file.read(reinterpret_cast<char*>(&raw), sizeof(LogRaw))) {
+//         string rfid(raw.rfid);
+//         string time(raw.time);
+//         string action(raw.action);
+//         string name(raw.name);
+//         Log newLog(rfid, name, time, action); 
+//         result.push_back(newLog);
+//     }
+
+//     return result;
+// }
+
+void loadFileBinery(){
+    ifstream file("logs.bin", ios::binary);
+    if (!file.is_open()) {
+        cerr << "Gagal membuka file.\n";
+    }
+
+    LogRaw raw;
+    
+    while (file.read(reinterpret_cast<char*>(&raw), sizeof(LogRaw))) {
+        string rfid(raw.rfid);
+        string time(raw.time);
+        string action(raw.action);
+        string name(raw.name);
+        Log newLog(rfid, name, time, action); 
+        logs.push_back(newLog);
+    }
 }
 
-string searchLogs(string param){
-	string key, message;
-	
-	return message;
+void sendAllLogs(SOCKET sock) {
+
+    for (const auto& log : logs) {
+        string logString = log.getName() + " " + log.getTime() + " " + log.getAction();
+        send(sock, logString.c_str(), logString.size(), 0);
+        Sleep(50); // beri jeda kecil jika perlu
+    }
+    string endSignal = "#END";
+    send(sock, endSignal.c_str(), endSignal.length(), 0);
+    cout << "Semua log telah dikirim.\n";
 }
 
-string exportJSON(string param){
-	string type,message;
- 	stringstream ss(param);
-	getline(ss, type,' ');
-	
-	return message;
+
+void appendToBinary(const Log& log, const string& filename) {
+    ofstream file(filename, ios::binary | ios::app);
+    if (!file.is_open()) {
+        cerr << "Gagal membuka file.\n";
+        return;
+    }
+
+    LogRaw raw{};
+    strncpy(raw.rfid, log.getRFID().c_str(), sizeof(raw.rfid) - 1);
+    strncpy(raw.time, log.getTime().c_str(), sizeof(raw.time) - 1);
+    strncpy(raw.action, log.getAction().c_str(), sizeof(raw.action) - 1);
+    strncpy(raw.name, log.getName().c_str(), sizeof(raw.name) - 1);
+
+    file.write(reinterpret_cast<char*>(&raw), sizeof(LogRaw));
+    file.close();
+}
+
+
+string handleScan(string param) {
+    string result = addLog(param);
+    appendToBinary(logs.back(), "logs.bin");
+    cout << result << endl;
+    return "Berhasil Ditambahkan";
+}
+
+vector<Log> searchLogByName(const vector<Log>& logs, const string& keyword) {
+    vector<Log> result;
+
+    for (const auto& log : logs) {
+        string name = log.getName();
+        // Ubah ke lowercase untuk pencocokan yang tidak case-sensitive
+        string lowerName = name;
+        string lowerKeyword = keyword;
+        transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+        transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::tolower);
+        cout << lowerKeyword;
+
+        if (lowerName.find(lowerKeyword) != string::npos) {
+            result.push_back(log);
+        }
+    }
+
+    return result;
+}
+
+void sendSearching(SOCKET sock, const vector<Log>& allLogs, const string& keyword) {
+    vector<Log> hasil = searchLogByName(allLogs, keyword);
+
+    for (const auto& log : hasil) {
+        string logString = log.getName() + " " + log.getTime() + " " + log.getAction();
+        send(sock, logString.c_str(), logString.size(), 0);
+        Sleep(50); // beri jeda kecil jika perlu
+    }
+    string endSignal = "#END";
+    send(sock, endSignal.c_str(), endSignal.length(), 0);
+    cout << "Semua log telah dikirim.\n";
+}
+
+
+
+
+void downloadLogs(SOCKET sock){
+    for (const auto& log : logs) {
+        json j;
+        j["name"] = log.getName();
+        j["timestamp"] = log.getTime();
+        j["action"] = log.getAction();
+
+        string sendMessage = j.dump(); // ubah menjadi string JSON
+        send(sock, sendMessage.c_str(), sendMessage.size(), 0);
+        Sleep(50); // beri jeda kecil jika perlu
+    }
+    string endSignal = "END";
+    send(sock, endSignal.c_str(), endSignal.length(), 0);
+    cout << "Semua log telah dikirim.\n";
 }
 
 string exportBiner(string param){
@@ -108,33 +288,49 @@ string exportBiner(string param){
 }
 
 
-string processRequest(string recvMessage){
-	string request, param,sednMessage;
+bool processRequest(string recvMessage, SOCKET sock){
+	string request, param,sendMessage;
 	
 	stringstream ss(recvMessage);
     getline(ss,request,' ');
     getline(ss,param);
     
-    if(request == "ADD_LOG"){
-    	sendMessage = addLogs(param);
-	}else if(request == "GET_SHORTING_LOGS"){
-		sendMessage = addLogs(param);
-	}else if(request == "SEARCH_LOG"){
-		sendMessage = addLogs(param);
-	}else if(request == "EXPORT_JSON"){
-		sendMessage = addLogs(param);
-	}else if(request == "EXPORT_BINER"){
-		sendMessage = addLogs(param);
-	}else if(request == "SHUTDOWN"){
-		sendMessage = addLogs(param);
-	}else{
-		sendMessage = addLogs(param);
-	}
-    
-    return sendMessage;
+    if(request == "SHOW_LOG"){
+        sendAllLogs(sock);
+        return 1;
+    }else if(request == "SEARCH_LOG"){
+        cout << param;
+        sendSearching(sock, logs, param);
+        return 1;
+    }else if(request == "EXIT"){
+        return 0;
+    }else if(request == "DOWNLOAD_LOG"){
+        downloadLogs(sock);
+        return 1;
+    }else{
+        sendMessage = handleScan(recvMessage);
+        send(sock, sendMessage.c_str(), sendMessage.length(), 0);
+        return 1;
+    }
+	// }else if(request == "GET_SHORTING_LOGS"){
+	// 	sendMessage = addLogs(param);
+	// }else if(request == "SEARCH_LOG"){
+	// 	sendMessage = addLogs(param);
+	// }else if(request == "EXPORT_JSON"){
+	// 	sendMessage = addLogs(param);
+	// }else if(request == "EXPORT_BINER"){
+	// 	sendMessage = addLogs(param);
+	// }else if(request == "SHUTDOWN"){
+	// 	sendMessage = addLogs(param);
+	// }else{
+	// 	sendMessage = addLogs(param);
+	// }
 }
 
 int main() {
+    loadDatabaseFast();
+    loadFileBinery();
+    loadAction();
     
     
     WSADATA wsa;
@@ -186,24 +382,17 @@ int main() {
     }
     cout << "koneksi terhubung.\n\n";
     
-    while(1){
+    bool status = 1;
+    while(status){
     	recv_size = recv(client_socket, messageRecv, sizeof(messageRecv) - 1, 0);
     
     	if(recv_size == SOCKET_ERROR){
         	cout << "gagal menerima pesan error code" <<  WSAGetLastError()<<endl;
-    	}else {
+    	} else {
         	messageRecv[recv_size] = '\0';
-    	}
-    
-    	cout << "Pesan dari server: " << messageRecv <<endl;
-    
-    	string message = processRequest(storage,messageRecv);
-    
-    	send(client_socket, message.c_str(), message.length(), 0);
-    	
-    	if(message == "program telah selesai, menutup server....."){
-    		break;
-		}
+            cout << "Pesan dari server: " << messageRecv <<endl;
+            status = processRequest(messageRecv, client_socket);
+        }
 	}
     
     closesocket(client_socket);

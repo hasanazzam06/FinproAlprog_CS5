@@ -93,7 +93,7 @@ class LogManager{
 		
 		LogManager(string ID){
 			ID_client = ID;
-			string logFile = "logs"+ID_client+"biner.bin";
+			string logFile = "logsBiner"+ID_client+".bin";
 			logs = readFileBiner(logFile.c_str());
 			//datas = readFileBiner()
 		}
@@ -222,8 +222,7 @@ class LogManager{
 			string message;
 			
 			string logFile = "logs"+ID_client+".json";
-			exportToJSON(l
-			ogs, logFile);
+			exportToJSON(logs, logFile);
 			
 			message = "berhasil export file";
 			return message;

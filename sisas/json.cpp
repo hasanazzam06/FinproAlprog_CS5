@@ -13,9 +13,9 @@ private:
     string time;
 
 public:
-//    Log() = default; 
-//    Log(string rfid, string act, string t)
-//        : RFID(rfid), action(act), time(t) {}
+    Log() = default; 
+    Log(string rfid, string act, string t)
+        : RFID(rfid), action(act), time(t) {}
 
     Log(string param) {
         stringstream ss(param);

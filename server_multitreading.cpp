@@ -93,7 +93,7 @@ class LogManager{
 		
 		LogManager(string ID){
 			ID_client = ID;
-			string logFile = "logsBiner"+ID_client+".bin";
+			string logFile = "logs"+ID_client+"biner.bin";
 			logs = readFileBiner(logFile.c_str());
 			//datas = readFileBiner()
 		}

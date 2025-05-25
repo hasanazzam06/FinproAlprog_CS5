@@ -1,0 +1,27 @@
+[
+    {
+        "action": "IN",
+        "rfid": "JAHJSA",
+        "time": "2025-05-24->1627:55"
+    },
+    {
+        "action": "OUT",
+        "rfid": "JAHJSA",
+        "time": "2025-05-24->1627:59"
+    },
+    {
+        "action": "IN",
+        "rfid": "JAHJSA",
+        "time": "2025-05-24->1628:03"
+    },
+    {
+        "action": "OUT",
+        "rfid": "JAHJSA",
+        "time": "2025-05-24->1628:06"
+    },
+    {
+        "action": "IN",
+        "rfid": "KAHDAS",
+        "time": "2025-05-25->0820:08"
+    }
+]

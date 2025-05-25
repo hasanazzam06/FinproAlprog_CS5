@@ -18,5 +18,15 @@
         "action": "IN",
         "rfid": "skaaddaa11dak",
         "time": "11.59"
+    },
+    {
+        "action": "IN",
+        "rfid": "skaaddaa11dak",
+        "time": "11.59"
+    },
+    {
+        "action": "IN",
+        "rfid": "skaaddaa11dak",
+        "time": "11.59"
     }
 ]

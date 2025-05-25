@@ -6,7 +6,9 @@
 #include <cctype> 
 #include <thread>
 #include <winsock2.h>
+#include "json.hpp"
  
+using json = nlohmann::json;
 using namespace std;
 
 #define PORT 8888
@@ -18,6 +20,11 @@ class Log{
 		string time;
 		
 	public:
+		Log() = default; 
+		
+    	Log(string rfid, string act, string t)
+        : RFID(rfid), action(act), time(t) {}
+		
 		Log(string param){
 			
  			stringstream ss(param);
@@ -33,7 +40,30 @@ class Log{
     	string toString() const {
         return "RFID: " + RFID + ", Action: " + action + ", Time: " + time;
     	}
+    	
+    	friend void to_json(json& j, const Log& l);
+    	friend void from_json(const json& j, Log& l);
 };
+
+void to_json(json& j, const Log& l){
+    j = json{{"rfid", l.RFID}, {"action", l.action}, {"time", l.time}};
+}
+
+void from_json(const json& j, Log& l) {
+    j.at("rfid").get_to(l.RFID);
+    j.at("action").get_to(l.action);
+    j.at("time").get_to(l.time);
+}
+
+int exportToJSON(const vector<Log>& logs, const string& filename) {
+    ofstream file(filename);
+    if (!file.is_open()) return 0;
+
+    json j = logs; // otomatis pakai to_json()
+    file << setw(4) << j << endl; // buat tampil rapi
+    file.close();
+    return 1;
+}
 
 class User{
 	private:
@@ -63,7 +93,7 @@ class LogManager{
 		
 		LogManager(string ID){
 			ID_client = ID;
-			string logFile = "logsBiner"+ID+".bin";
+			string logFile = "logsBiner"+ID_client+".bin";
 			logs = readFileBiner(logFile.c_str());
 			//datas = readFileBiner()
 		}
@@ -191,6 +221,11 @@ class LogManager{
 		string exportJSON(){
 			string message;
 			
+			string logFile = "logs"+ID_client+".json";
+			exportToJSON(l
+			ogs, logFile);
+			
+			message = "berhasil export file";
 			return message;
 		}
 		

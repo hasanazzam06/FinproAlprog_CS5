@@ -11,6 +11,8 @@ using namespace std;
 #define SERVER "127.0.0.1"
 #define PORT 8888
 
+string ID_CLIENT = "111";
+
 string getCurrentTime() {
     time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)
     tm* localTime = localtime(&now); // ubah jadi struct waktu lokal
@@ -61,7 +63,9 @@ int main() {
         return 1;
     }
     
-    cout << "terhubung ke server.\n"<<endl;
+    cout << "\nterhubung ke server.\n"<<endl;
+    
+    send(client_socket, ID_CLIENT.c_str(), ID_CLIENT.length(), 0);
     
     while(1){
     	cout<<"----------------------------------\n"<<endl;

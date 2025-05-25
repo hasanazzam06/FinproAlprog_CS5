@@ -3,9 +3,6 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
-#include <ctime>
-#include <iomanip>
-#include <algorithm>
 #include <cctype> 
 #include <thread>
 #include <winsock2.h>
@@ -56,13 +53,20 @@ class User{
 		string getStatus() const{return status;}
 };
 
-
 class LogManager{
 	private:
 		vector<Log> logs;
 		vector<User> datas;
+		string ID_client;
 	
 	public:
+		
+		LogManager(string ID){
+			ID_client = ID;
+			string logFile = "logsBiner"+ID+".bin";
+			logs = readFileBiner(logFile.c_str());
+			//datas = readFileBiner()
+		}
 		
 		void insertionSort(vector<Log>& listLog) {
     		int n = listLog.size();
@@ -80,13 +84,13 @@ class LogManager{
     		}
 		}
 
-		int exportBiner(string param){
+		int exportBiner(string param, const char nameFile[]){
 			int status=0;
 			
 			char temp[100];
 			strcpy(temp,param.c_str());
 			
-			FILE* file = fopen("logsBiner.bin", "ab");
+			FILE* file = fopen(nameFile, "ab");
 			
 			if(file){
 				fwrite(temp, sizeof(temp),1,file);
@@ -99,12 +103,16 @@ class LogManager{
 			return status;
 		}
 		
-		int readFileBiner(){
+		vector<Log> readFileBiner(const char nameFile[]){
 			int status=0;
 			char data[100];
 			string param;
 			
-			FILE* file = fopen("logsBiner.bin", "rb");
+			vector<Log> readLogs;
+ 			
+ 			cout<<"proses pembacaan data ....."<<endl;
+ 			
+			FILE* file = fopen(nameFile, "rb");
 			
 			if(file){
 				
@@ -112,24 +120,26 @@ class LogManager{
 					param = data;
 					
 					Log readLog(param);
-					logs.push_back(readLog);
+					readLogs.push_back(readLog);
 				}
 				
 				fclose(file);
 				status = 1;	
 			}
 			
-			cout<<"proses dara ....."<<endl;
-			return status;
+			cout<<"history logs berhasil terbaca.\n"<<endl;
+			return readLogs;
 		}
 		
-		string addLog(string param){
+		string addLog(string datasLog){
 			string message;
 			
-			Log newLog(param);
+			Log newLog(datasLog);
 			logs.push_back(newLog);
 			
-			if(exportBiner(param)){
+			string nameFile = "logsBiner"+ID_client+".bin";
+			
+			if(exportBiner(datasLog,nameFile.c_str())){
 				message = "Add log berhasil -> " + newLog.toString() +"\n";
 			}else{
 				message = "gagal menyimpan log\n";
@@ -259,109 +269,125 @@ class LogManager{
 		}		
 };
 
-void clientPort(SOCKET client_socket){
-	int  recv_size;
-    char messageRecv[100];
-    
-    LogManager mainPros;
-    
-    
-    
-    while(1){
-    	recv_size = recv(client_socket, messageRecv, sizeof(messageRecv) - 1, 0);
-    
-    	if(recv_size == SOCKET_ERROR){
-        	cout << "gagal menerima pesan error code" <<  WSAGetLastError()<<endl;
-    	}else {
-        	messageRecv[recv_size] = '\0';
-    	}
-    
-    	cout << "Pesan dari server: " << messageRecv <<endl;
-    
-    	string message = mainPros.processRequest(messageRecv);
-    
-    	send(client_socket, message.c_str(), message.length(), 0);
-    	
-    	if(message == "program telah selesai, menutup server....."){
-    		break;
+class AttendanceSystem{
+	private:
+		vector<Log> logsGlobal;
+		
+	public:
+		void clientPort(SOCKET client_socket){
+			int  recv_size;
+		    char messageRecv[100], ID_client[5];
+		    
+		    recv_size = recv(client_socket, ID_client, sizeof(ID_client) - 1, 0);
+		    
+		    if(recv_size == SOCKET_ERROR){
+		       	cout << "gagal menerima pesan error code" <<  WSAGetLastError()<<endl;
+		   	}else {
+		       	ID_client[recv_size] = '\0';
+		   	}
+
+		    cout << "\nkoneksi terhubung dengan ID_client: " << ID_client << endl;
+		    
+		    LogManager mainPros(ID_client);
+		    
+		    while(1){
+		    	recv_size = recv(client_socket, messageRecv, sizeof(messageRecv) - 1, 0);
+		    
+		    	if(recv_size == SOCKET_ERROR){
+		        	cout << "gagal menerima pesan error code" <<  WSAGetLastError()<<endl;
+		        	break;
+		    	}else {
+		        	messageRecv[recv_size] = '\0';
+		    	}
+		    
+		    	cout << "Pesan dari Client("<<ID_client<<") : " << messageRecv <<endl;
+		    
+		    	string message = mainPros.processRequest(messageRecv);
+		    
+		    	send(client_socket, message.c_str(), message.length(), 0);
+		    	
+		    	if(message == "program telah selesai, menutup server....."){
+		    		break;
+				}
+			}
+			
+			closesocket(client_socket);
+			
 		}
-	}
-	
-	closesocket(client_socket);
-	
-}
-
-SOCKET makeSocket(){
-	WSADATA wsa;
-    SOCKET listen_socket;
-    struct sockaddr_in server;
-    
-    
-    cout << "Memulai Winsock...\n";
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        cerr << "WSAStartup gagal. Error code: " << WSAGetLastError() <<endl;
-        return INVALID_SOCKET;
-    }
-    cout << "Winsock terisntall.\n";
-
-    listen_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_socket == INVALID_SOCKET) {
-        cerr <<"gagal membuat socket. Error code: " << WSAGetLastError() <<endl;
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
-    cout << "Socket berhasil dibuat."<<endl;
-
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(PORT);
-
-    if (bind(listen_socket, (struct sockaddr*)&server, sizeof(server)) == SOCKET_ERROR) {
-        cerr << "Bind gagal. Error code: " << WSAGetLastError() <<endl;
-        closesocket(listen_socket);
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
-    cout << "Bind berhasil."<<endl;
-    
-    listen(listen_socket, 3);
-    cout << "menunggu koneksi..."<<endl;
-    
-    return listen_socket;
-}
-
-void ServerProses(){
-	struct sockaddr_in client;
-	int c = sizeof(struct sockaddr_in);
-
-	SOCKET listen_socket = makeSocket();
-	if (listen_socket == INVALID_SOCKET) {
-        cerr <<"gagal membuat socket. Error code: " << WSAGetLastError() <<endl;
-        WSACleanup();
-        return;
-    }
-    
-    while(1){
-    	SOCKET client_socket = accept(listen_socket, (struct sockaddr*)&client, &c);
-    
-    	if (client_socket == INVALID_SOCKET) {
-        	cerr << "Accept gagal. Error code: " << WSAGetLastError() <<endl;
-        	closesocket(listen_socket);
-        	WSACleanup();
-        	return;
-    	}
-    	cout << "koneksi terhubung.\n\n";
-    	
-    	thread t(clientPort,client_socket);
-    	t.detach();
-	}
-
-    closesocket(listen_socket);
-    WSACleanup();	
-}
+		
+		SOCKET makeSocket(){
+			WSADATA wsa;
+		    SOCKET listen_socket;
+		    struct sockaddr_in server;
+		    
+		    
+		    cout << "Memulai Winsock...\n";
+		    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+		        cerr << "WSAStartup gagal. Error code: " << WSAGetLastError() <<endl;
+		        return INVALID_SOCKET;
+		    }
+		    cout << "Winsock terisntall.\n";
+		
+		    listen_socket = socket(AF_INET, SOCK_STREAM, 0);
+		    if (listen_socket == INVALID_SOCKET) {
+		        cerr <<"gagal membuat socket. Error code: " << WSAGetLastError() <<endl;
+		        WSACleanup();
+		        return INVALID_SOCKET;
+		    }
+		    cout << "Socket berhasil dibuat."<<endl;
+		
+		    server.sin_family = AF_INET;
+		    server.sin_addr.s_addr = INADDR_ANY;
+		    server.sin_port = htons(PORT);
+		
+		    if (bind(listen_socket, (struct sockaddr*)&server, sizeof(server)) == SOCKET_ERROR) {
+		        cerr << "Bind gagal. Error code: " << WSAGetLastError() <<endl;
+		        closesocket(listen_socket);
+		        WSACleanup();
+		        return INVALID_SOCKET;
+		    }
+		    cout << "Bind berhasil."<<endl;
+		    
+		    listen(listen_socket, 3);
+		    cout << "menunggu koneksi..."<<endl;
+		    
+		    return listen_socket;
+		}
+		
+		void ServerProses(){
+			struct sockaddr_in client;
+			int c = sizeof(struct sockaddr_in);
+		
+			SOCKET listen_socket = makeSocket();
+			if (listen_socket == INVALID_SOCKET) {
+		        cerr <<"gagal membuat socket. Error code: " << WSAGetLastError() <<endl;
+		        WSACleanup();
+		        return;
+		    }
+		    
+		    while(1){
+		    	SOCKET client_socket = accept(listen_socket, (struct sockaddr*)&client, &c);
+		    
+		    	if (client_socket == INVALID_SOCKET) {
+		        	cerr << "Accept gagal. Error code: " << WSAGetLastError() <<endl;
+		        	closesocket(listen_socket);
+		        	WSACleanup();
+		        	return;
+		    	}
+		    	
+		    	thread t(&AttendanceSystem::clientPort, this,client_socket);
+		    	t.detach();
+			}
+		
+		    closesocket(listen_socket);
+		    WSACleanup();	
+		}
+		
+};
 
 int main() {
+	AttendanceSystem As;
 	
-	ServerProses();
+	As.ServerProses();	
     return 0;
 }

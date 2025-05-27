@@ -4,6 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <cctype> 
+#include <algorithm>
 #include <thread>
 #include <winsock2.h>
 #include "json.hpp"
@@ -13,32 +14,68 @@ using namespace std;
 
 #define PORT 8888
 
+string toUpper(string str) {
+    transform(str.begin(), str.end(), str.begin(), ::toupper);
+    return str;
+}
+
+string getDate() {
+    time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)
+    tm* localTime = localtime(&now); // ubah jadi struct waktu lokal
+
+    stringstream ss;
+    ss << put_time(localTime, "%Y-%m-%d"); // format waktu jadi string
+    return ss.str();
+}
+
+string templateLog(){
+	ostringstream oss;
+    		
+    oss<<left<<setw(10) << "RFID"
+    	<<setw(15) << "Name"
+    	<< setw(10) << "Action"
+   		<<"Time\n";
+   		
+    return oss.str();
+}
+
 class Log{
 	private:
 		string RFID;
-		string action;
 		string time;
+		string name;
+		string action;
+		
 		
 	public:
 		Log() = default; 
 		
-    	Log(string rfid, string act, string t)
-        : RFID(rfid), action(act), time(t) {}
+//    	Log(string rfid, string act, string t)
+//        : RFID(rfid), action(act), time(t) {}
 		
 		Log(string param){
-			
  			stringstream ss(param);
  			getline(ss, RFID,' ');
- 			getline(ss, action,' ');
  			getline(ss, time,' ');
+ 			getline(ss, action,' ');
+ 			getline(ss, name);
+ 			
 		}
 		
 		string getRFID() const { return RFID; }
     	string getAction() const { return action; }
     	string getTime() const { return time; }
+    	string getName() const { return name;}
     	
     	string toString() const {
-        return "RFID: " + RFID + ", Action: " + action + ", Time: " + time;
+    		ostringstream oss;
+    		
+    		oss<<left<<setw(10) << RFID
+    			<<setw(15) << name
+    			<< setw(10) << action
+    			<<time<<"\n";
+        //return "RFID: " + RFID + ", Nama: "+ name + ", Action: " + action + ", Time: " + time;
+        	return oss.str();
     	}
     	
     	friend void to_json(json& j, const Log& l);
@@ -46,13 +83,14 @@ class Log{
 };
 
 void to_json(json& j, const Log& l){
-    j = json{{"rfid", l.RFID}, {"action", l.action}, {"time", l.time}};
+    j = json{{"rfid", l.RFID}, {"action", l.action}, {"time", l.time}, {"name",l.name}};
 }
 
 void from_json(const json& j, Log& l) {
     j.at("rfid").get_to(l.RFID);
     j.at("action").get_to(l.action);
     j.at("time").get_to(l.time);
+    j.at("name").get_to(l.name);
 }
 
 int exportToJSON(const vector<Log>& logs, const string& filename) {
@@ -65,37 +103,89 @@ int exportToJSON(const vector<Log>& logs, const string& filename) {
     return 1;
 }
 
+int readFromJSON(vector<Log>& logs, const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) return 0;
+
+    json j;
+    file >> j;
+    file.close();
+
+    logs = j.get<vector<Log>>(); // otomatis pakai from_json()
+    return 1;
+}
+
+
 class User{
 	private:
 		string name;
 		string RFID;
-		string status;
-		
+
 	public:
-		User(string n,string m, string o, string p){
+		
+		User() = default;
+		 
+		User(string n, string m){
 			name = n;
-			RFID = o;
-			status = p;
+			RFID = m;
 		}
 		
 		string getName() const{ return name; }
 		string getRFID() const{ return RFID; }
-		string getStatus() const{return status;}
+		
+		friend void to_json(json& j, const User& u);
+		friend void from_json(const json& j, User& u);
+		
 };
+
+void to_json(json& j, const User& u){
+    j = json{{"rfid", u.RFID}, {"name", u.name}};
+}
+
+void from_json(const json& j, User& u) {
+    j.at("rfid").get_to(u.RFID);
+    j.at("name").get_to(u.name);
+}
+
+int readFromJSON(vector<User>& db) {
+    ifstream file("dataBase.json");
+    if (!file.is_open()) return 0;
+
+    json j;
+    file >> j;
+    file.close();
+
+    db = j.get<vector<User>>(); // otomatis pakai from_json()
+    return 1;
+}
+
 
 class LogManager{
 	private:
 		vector<Log> logs;
 		vector<User> datas;
 		string ID_client;
+		unordered_map<string, string> lastActionByRFID;
+		unordered_map<string, string> rfidToName;
 	
 	public:
 		
 		LogManager(string ID){
 			ID_client = ID;
 			string logFile = "logsBiner"+ID_client+".bin";
-			logs = readFileBiner(logFile.c_str());
-			//datas = readFileBiner()
+			logs = loadFileBinery(logFile.c_str());
+			loadAction();
+			readFromJSON(datas);
+		
+			for(const auto& data:datas){
+				rfidToName[data.getRFID()] = data.getName();
+			}
+		}
+		
+		void loadAction(){
+		    for (const auto& log : logs) {
+		        lastActionByRFID[log.getRFID()] = log.getAction();
+		    }
 		}
 		
 		void insertionSort(vector<Log>& listLog) {
@@ -114,11 +204,10 @@ class LogManager{
     		}
 		}
 
-		int exportBiner(string param, const char nameFile[]){
-			int status=0;
+		int exportBiner(string datasLog, const char nameFile[]){
 			
 			char temp[100];
-			strcpy(temp,param.c_str());
+			strcpy(temp,datasLog.c_str());
 			
 			FILE* file = fopen(nameFile, "ab");
 			
@@ -127,14 +216,13 @@ class LogManager{
 				
 				fclose(file);
 				
-				status = 1;	
+				return 1;	
 			}
 			
-			return status;
+			return 0;
 		}
 		
-		vector<Log> readFileBiner(const char nameFile[]){
-			int status=0;
+		vector<Log> loadFileBinery(const char nameFile[]){
 			char data[100];
 			string param;
 			
@@ -153,23 +241,45 @@ class LogManager{
 					readLogs.push_back(readLog);
 				}
 				
-				fclose(file);
-				status = 1;	
+				fclose(file);	
 			}
 			
 			cout<<"history logs berhasil terbaca.\n"<<endl;
 			return readLogs;
 		}
 		
+		string SearchRFID(string rfid) {
+    		auto it = rfidToName.find(rfid);
+    		if (it != rfidToName.end()) {
+        		return it->second; // kembalikan nama sebenarnya
+    		}
+    		return "Tidak dikenal";
+		}
+
 		string addLog(string datasLog){
 			string message;
 			
+			string temp, action;
+			stringstream ss(datasLog);
+			getline(ss,temp,' ');
+						
+		    if (lastActionByRFID.find(temp) == lastActionByRFID.end() || lastActionByRFID[temp] == "Keluar") {
+		        action = "masuk";
+		    } else {
+		        action = "Keluar";
+    		}
+    		
+    		datasLog += " "+ action;
+		    lastActionByRFID[temp] = action;
+		    
+			datasLog+=" "+ SearchRFID(temp);
+		
 			Log newLog(datasLog);
 			logs.push_back(newLog);
 			
 			string nameFile = "logsBiner"+ID_client+".bin";
 			
-			if(exportBiner(datasLog,nameFile.c_str())){
+			if(exportBiner(datasLog, nameFile.c_str())){
 				message = "Add log berhasil -> " + newLog.toString() +"\n";
 			}else{
 				message = "gagal menyimpan log\n";
@@ -179,21 +289,38 @@ class LogManager{
 		}
 		
 		string searchLogs(string param){
-			string key, message;
+			string key, message, temp,today;
 			
 			stringstream ss(param);
 			getline(ss,key,' ');
 			
-			message = "List Log dengan RFID: "+key+"\n";
+			vector<Log> tempSearch;
+			
+			message = "List Log dengan key : "+key+"\n";
+			
+			today = getDate();
 			
 			for(const auto& log:logs){
-				if(log.getRFID() == key){
-					message += log.getAction() + " " + log.getTime() + "\n";
+				temp = toUpper(log.getName());
+				if(log.getRFID().find(key) != string::npos){
+					//message += log.getAction() + " " + log.getTime() + "\n";
+					tempSearch.push_back(log);
+				}else if(temp.find(key) != string::npos){
+					//message += log.getAction() + " " + log.getTime() + "\n";
+					tempSearch.push_back(log);
+				}else if(key == "TODAY" && log.getTime().find(today) != string::npos){
+					tempSearch.push_back(log);
 				}
 			}
 			
-			if(logs.empty()){
-				message = "Tidak Ada history log dengan RFID"+ key +"\n";
+			message += templateLog();
+			
+			for(const auto& log:tempSearch){
+				message += log.toString();
+			}
+			
+			if(tempSearch.empty()){
+				message = "Tidak Ada history log dengan kata kunci : "+ key +"\n";
 			}
 			
 			return message;
@@ -204,11 +331,12 @@ class LogManager{
 			
 		 	vector<Log> temp = logs;
 		 	
-		 	insertionSort(temp);
-		 	
-			message = "Daftar Logs:\n";
-			for(const auto& log:temp){
-				message += log.getRFID() + " " + log.getAction() + " " + log.getTime() + "\n";
+		 	//insertionSort(temp);
+		
+			message = "Daftar Logs:\n" + templateLog();
+			
+			for(const auto& log:logs){
+				message += log.toString();
 			}
 			
 			if (logs.empty()) {
@@ -230,10 +358,10 @@ class LogManager{
 		
 		string database(){
 			string message;
-			message = "List anggota yg terdaftar";
+			message = "List anggota yg terdaftar\n";
 			
 			for(const auto& data:datas){
-				message+=data.getName() + " " + data.getRFID();
+				message+= data.getRFID() + " " + data.getName()+"\n";
 			}
 			
 			if(datas.empty()){
@@ -261,7 +389,7 @@ class LogManager{
 		    string message =
 		        "List Request:\n\n"
 		        "- ADD_LOG <RFID> <IN/OUT> (TIMESTAMP)      -> menambah log baru\n"
-		        "- SEARCH_LOG <RFID>                        -> menampilkan list log berdasarkan RFID\n"
+		        "- SEARCH_LOG <MODE> <key>                  -> menampilkan list log berdasarkan RFID\n"
 		        "- LIST_LOGS                                -> menampilkan list log Lokal/Global berdasarkan waktu\n"
 		        "- EXPORT_JSON                              -> menyimpan data log Lokal/Global ke file JSON\n"
 		        "- DATABASE                                 -> menampilkan data anggota\n"

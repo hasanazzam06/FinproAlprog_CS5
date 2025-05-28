@@ -77,6 +77,17 @@ class ClientProgram{
 		}
 		
 		void clientMainProses(){
+			
+			recv_size = recv(client_socket, messageRecv, sizeof(messageRecv) - 1, 0);
+			
+			if(recv_size == SOCKET_ERROR){
+		        	cout << "gagal menerima pesan error code" <<  WSAGetLastError()<<endl;
+		    }else {
+		        	messageRecv[recv_size] = '\0';
+		   	}
+		   	
+		   	cout << "Pesan dari server: \n" << messageRecv <<endl;
+			
 			while(1){
 		    	cout<<"----------------------------------\n"<<endl;
 		    	cout << "Request: ";

@@ -388,8 +388,8 @@ class LogManager{
 		string help() {
 		    string message =
 		        "List Request:\n\n"
-		        "- ADD_LOG <RFID> <IN/OUT> (TIMESTAMP)      -> menambah log baru\n"
-		        "- SEARCH_LOG <MODE> <key>                  -> menampilkan list log berdasarkan RFID\n"
+		        "- ADD_LOG <RFID> (IN/OUT) (TIMESTAMP)      -> menambah log baru\n"
+		        "- SEARCH_LOG <key/RFID/NAME/TODAY>         -> menampilkan list log berdasarkan RFID\n"
 		        "- LIST_LOGS                                -> menampilkan list log Lokal/Global berdasarkan waktu\n"
 		        "- EXPORT_JSON                              -> menyimpan data log Lokal/Global ke file JSON\n"
 		        "- DATABASE                                 -> menampilkan data anggota\n"
@@ -451,6 +451,11 @@ class AttendanceSystem{
 		    cout << "\nkoneksi terhubung dengan ID_client: " << ID_client << endl;
 		    
 		    LogManager mainPros(ID_client);
+		    
+		    string menu = mainPros.help();
+		    cout<<menu;
+		    send(client_socket, menu.c_str(), menu.length(), 0);
+		    
 		    
 		    while(1){
 		    	recv_size = recv(client_socket, messageRecv, sizeof(messageRecv) - 1, 0);

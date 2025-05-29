@@ -231,7 +231,7 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
 
 ## 5. Flowchart Server
 
-``mermaid
+```mermaid
 flowchart TD
     A[Start Server] --> B[Initialize Winsock]
     B --> C[Create Socket]

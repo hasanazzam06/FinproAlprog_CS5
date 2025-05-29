@@ -111,15 +111,15 @@ Pengelola utama data log dan database user.
 **Method Menu** 
 (Dipanggil saat menerima perintah client)
 
-- `addLog(string datasLog)` — menambahkan log baru, menyesuaikan data nama dan action.
-- `searchLogs(string param)` — mencari log berdasarkan RFID atau nama, atau list log hari ini.
-- `listLogs()` — menampilkan semua log yang sudah terurut.
+- `addLog(string datasLog)` — menambahkan log baru, menyesuaikan data nama dan action. Menggunakkan `exportBiner()`,`loadAction()`,dan `SearchRFID()`
+- `searchLogs(string param)` — mencari log berdasarkan RFID atau nama, atau list log hari ini. 
+- `listLogs()` — menampilkan semua log yang sudah terurut.`insertionSort()`
 - `exportJSON()` — menyimpan log saat ini ke file JSON.
 - `database()` — menampilkan list database user.
 - `clear()` — menghapus semua log saat ini.
 - `help()` — menampilkan daftar perintah yang dapat dipakai client.
 
-**processRequest(string recvMessage)**
+**Fucntion `processRequest(string recvMessage)`**
 
 - Fungsi utama yang memproses perintah dari client.
 - Memecah `recvMessage` menjadi `request` dan `param`.
@@ -143,6 +143,7 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
   - Menerima ID client pertama kali.
   - Loop menerima pesan (request) dari client.
   - Memproses request menggunakan objek `LogManager`.
+  - Memanggil `processRequest()`
   - Mengirimkan hasil ke client.
   - Menutup koneksi saat client disconnect atau perintah `SHUTDOWN`.
 
@@ -151,7 +152,8 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
   - Melakukan bind dan listen.
   - Mengembalikan `SOCKET` hasil pembuatan.
 
-- `ServerProses()`
+- `ServerProses()` 
+  - membuat Socket dengan `makeSocket()`
   - Menjalankan server standby menerima koneksi client.
   - Untuk setiap client baru, buat thread baru menjalankan `clientPort()`.
   - Mendukung multithreading agar server dapat melayani banyak client bersamaan.

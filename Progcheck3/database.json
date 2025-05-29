@@ -1,0 +1,22 @@
+[
+  {
+    "rfid": "F346A52C",
+    "name": "Alice Johnson"
+  },
+  {
+    "rfid": "F346A52e",
+    "name": "Bob Marley"
+  },
+  {
+    "rfid": "F346A52d",
+    "name": "Charlie Brown"
+  },
+  {
+    "rfid": "F346A52",
+    "name": "Diana Prince"
+  },
+  {
+    "rfid": "E258FC03",
+    "name": "Evan Smith"
+  }
+]

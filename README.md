@@ -231,37 +231,36 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
 
 ## 5. Flowchart Server
 
-```mermaid
+``mermaid
 flowchart TD
     A[Start Server] --> B[Initialize Winsock]
     B --> C[Create Socket]
     C --> D[Bind Socket]
-    D --> E[Listen for Client Connections]
+    D --> E[Listen for Client 
+    Connections]
     E --> F{New Client Connected?}
     F -- Yes --> G[Create New Thread untuk Client]
     G --> H[Thread: Receive Client ID]
-    H --> I[Loop: Terima Perintah Client]
+    H --> I[Loop: Terima Perintah 
+    Client]
     I --> J{Perintah?}
     
-    J -->|ADD_LOG| K[Tulis Log ke File Biner]
-    J -->|SEARCH_LOG| L[Cari Log di File]
-    J -->|LIST_LOGS| M[Baca Semua Log]
-    J -->|EXPORT_JSON| N[Export Log ke JSON]
-    J -->|CLEAR| O[Hapus Semua Log]
-    J -->|SHUTDOWN| P[Set Flag Shutdown]
-    J -->|Lainnya| Q[Kirim Pesan Error]
+    J -->|Menu| K[
+    ADD_LOG
+    SEARCH_LOG
+    LIST_LOGS
+    EXPORT_JSON
+    CLEAR
+    Lainnya
+    ]
+
+    J -->|Menu| P[SHUTDOWN]
+  
 
     K --> R[Kirim Respons ke Client]
-    L --> R
-    M --> R
-    N --> R
-    O --> R
-    Q --> R
-
     R --> I
-    P --> S[Close Socket]
-    S --> T[Cleanup Winsock]
-    T --> U[Stop Server]
+    P --> S[menutup tread client]
+    S-->E
     F -- No --> E
 
 ```
@@ -275,17 +274,22 @@ flowchart TD
     B --> C[Create Socket]
     C --> D[Connect ke Server]
     D --> E[Kirim ID Client ke Server]
-    E --> F[Terima Pesan Sambutan Server]
-    F --> G[Loop Input Perintah dari User]
-    G --> H[Ubah Perintah ke Huruf Kapital]
+    E --> F[Terima Pesan 
+    Sambutan Server]
+    F --> G[Loop Input Perintah 
+    dari User]
+    G --> H[Ubah Perintah 
+    ke Huruf Kapital]
     H --> I[Perintah == ADD_LOG? ]
     I -- Yes --> J[Tambahkan Timestamp ke Perintah]
     I -- No --> K[Gunakan Perintah Apa Adanya]
   
     J --> L[Kirim Perintah ke Server]
     K --> L
-    L --> M[Terima Respons dari Server]
-    M --> N[Tampilkan Respons ke User]
+    L --> M[Terima Respons 
+    dari Server]
+    M --> N[Tampilkan Respons 
+    ke User]
     N --> O{Perintah = SHUTDOWN?}
     O -- Yes --> P[Tutup Socket & Cleanup Winsock]
     O -- No --> G

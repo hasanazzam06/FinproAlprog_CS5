@@ -11,7 +11,7 @@ using namespace std;
 #define SERVER "127.0.0.1"
 #define PORT 8888
 
-string ID_CLIENT = "111";
+string ID_CLIENT = "121";
 
 string getCurrentTime() {
     time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)

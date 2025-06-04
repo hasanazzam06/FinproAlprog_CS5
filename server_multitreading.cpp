@@ -37,13 +37,14 @@ using namespace std;
 
 #define PORT 8888
 
-//memebuat sting jadi kapital
+// Mengubah seluruh huruf dalam string menjadi huruf kapital.
 string toUpper(string str) {
     transform(str.begin(), str.end(), str.begin(), ::toupper);
     return str;
 }
 
-//return tgl hari ini
+
+// Mengembalikan tanggal hari ini dalam format YYYY-MM-DD.
 string getDate() {
     time_t now = time(0); // ambil waktu sekarang dalam format epoch (detik)
     tm* localTime = localtime(&now); // ubah jadi struct waktu lokal
@@ -53,7 +54,8 @@ string getDate() {
     return ss.str();
 }
 
-//template string header list log
+
+// Return header string tabel untuk daftar log (RFID, Name, Action, Time).
 string templateLog(){
 	ostringstream oss;
     		
@@ -65,17 +67,19 @@ string templateLog(){
     return oss.str();
 }
 
-//template string header list database
+// Return header string tabel untuk daftar database pengguna (RFID, Name).
 string templateDatabase(){
 	ostringstream oss;
     		
     oss<<left<<setw(10) << "RFID"
-    	<<setw(15) << "Name";
+    	<<setw(15) << "Name\n";
    		
     return oss.str();
 }
 
-//class 1 log
+// =======================
+// Class Log: Mewakili satu entri log kehadiran RFID
+// =======================
 class Log{
 	private:
 		//atribut classs
@@ -120,12 +124,12 @@ class Log{
     	friend void from_json(const json& j, Log& l);
 };
 
-//fungsi export json
+// Mengonversi objek Log ke format JSON.
 void to_json(json& j, const Log& l){
     j = json{{"rfid", l.RFID}, {"action", l.action}, {"time", l.time}, {"name",l.name}};
 }
 
-//fungsi baca json
+// Mengonversi data JSON menjadi objek Log.
 void from_json(const json& j, Log& l) {
     j.at("rfid").get_to(l.RFID);
     j.at("action").get_to(l.action);
@@ -133,7 +137,9 @@ void from_json(const json& j, Log& l) {
     j.at("name").get_to(l.name);
 }
 
-//class ke 2 user database
+// =======================
+// Class User: Mewakili satu database User RFID
+// =======================
 class User{
 	
 	//atribut class
@@ -168,30 +174,37 @@ class User{
 		
 };
 
-// mirirp kayak sebelumnya tapi khusus class database bukan log
+// Mengonversi objek User ke format JSON.
 void to_json(json& j, const User& u){
     j = json{{"rfid", u.RFID}, {"name", u.name}};
 }
-
+// Mengonversi data JSON menjadi objek User.
 void from_json(const json& j, User& u) {
     j.at("rfid").get_to(u.RFID);
     j.at("name").get_to(u.name);
 }
 
-//class  utama: 3 
-//class main program log manajer
+
+// =======================
+// Class LogManager
+// Bertanggung jawab mengelola log kehadiran,
+// menambah, menyimpan, mencari, dan menampilkan log.
+// =======================
 class LogManager{
 	
-	// atribut class
+	// Atribut class menyimpan data log, data user, dan mapping untuk mempercepat proses
 	private:
-		vector<Log> logs;
-		vector<User> datas;
-		string ID_client;
-		unordered_map<string, string> lastActionByRFID;
-		unordered_map<string, string> rfidToName;
+		vector<Log> logs;                      // List log aktivitas
+		vector<User> datas;                    // List user database
+		string ID_client;                      // ID client yang terhubung
+		unordered_map<string, string> lastActionByRFID;// Menyimpan aksi terakhir tiap RFID
+		unordered_map<string, string> rfidToName;       // Mapping RFID ke nama user
 	
 	public:
-	//metdho class	
+		// Konstruktor class LogManager
+		// Inisialisasi ID client, memuat data log dari file biner,
+		// memuat aksi terakhir dan data user dari file JSON,
+		// dan membuat mapping RFID ke nama user	
 		LogManager(string ID){
 			ID_client = ID;
 			string logFile = "logsBiner"+ID_client+".bin";
@@ -204,16 +217,16 @@ class LogManager{
 			}
 		}
 
-// method umum		
+		// =====================  METHODS UNIVERSAL =====================		
 		
-		// mencari action terakhir dari suatu rfid		
+		// Memuat aksi terakhir dari setiap RFID ke dalam map lastActionByRFID		
 		void loadAction(){
 		    for (const auto& log : logs) {
 		        lastActionByRFID[log.getRFID()] = log.getAction();
 		    }
 		}
 		
-		// function shorting metode insertion
+		// Mengurutkan vector log menggunakan metode insertion sort
 		void insertionSort(vector<Log>& listLog) {
     		int n = listLog.size();
     
@@ -230,7 +243,7 @@ class LogManager{
     		}
 		}
 		
-		//nulis data ke biner dengan cara menambahkan data dikagir file, bukan buat ulang
+		// Menyimpan data log ke file biner dengan menambahkan (bukan menghapus data sebelumnya) data baru
 		int exportBiner(string datasLog, const char nameFile[]){
 			
 			char temp[100];
@@ -249,7 +262,7 @@ class LogManager{
 			return 0;
 		}
 		
-		//membaca file biner dan menyimpan ke vector Log
+		// Membaca data log dari file biner dan mengembalikannya sebagai vector<Log>
 		vector<Log> loadFileBinery(const char nameFile[]){
 			char data[100];
 			string param;
@@ -276,7 +289,7 @@ class LogManager{
 			return readLogs;
 		}
 		
-		// mencarai pasangan nama dan rfid
+		// Mencari pasangan nama dan rfid.
 		string SearchRFID(string rfid) {
     		auto it = rfidToName.find(rfid);
     		if (it != rfidToName.end()) {
@@ -285,7 +298,7 @@ class LogManager{
     		return "Tidak dikenal";
 		}
 		
-		//membaca file databse json dan menyimpanya ke vector user
+		// Membaca data user dari file JSON dan menyimpannya ke vector<User>
 		int readFromJSON(vector<User>& db) {
     		ifstream file("dataBase.json");
     		if (!file.is_open()) return 0;
@@ -298,7 +311,7 @@ class LogManager{
    		 	return 1;
 		}
 		
-		// menyimpan vector log ke file json
+		// Menyimpan vector log ke file JSON
 		int exportToJSON(const vector<Log>& logs, const string& filename) {
     		ofstream file(filename);
    			if (!file.is_open()) return 0;
@@ -309,9 +322,12 @@ class LogManager{
     		return 1;
 		}
 
-//method menu
-
-		//fungsi add log untuk menambah log dengan paramter rfid 
+	
+		// ===================== MENU METHODS =====================
+		
+		// Menambahkan entri log baru ke dalam sistem.
+		// Param: datasLog -> string berisi data RFID.
+		// Output: string konfirmasi status penambahan. 
 		string addLog(string datasLog){
 			string message;
 			
@@ -344,9 +360,12 @@ class LogManager{
 		 	return message;
 		}
 		
-		//fungsi mencari log dengan kata kunci tertentu bisa rfid taupun nama. bisa juga untuk mencari list log di hari ini
+		// Mencari log berdasarkan parameter tertentu (RFID, nama, atau keyword spesifik).
+		// Bisa juga digunakan untuk mencari  list log hari ini (Key: "today").
+		// Param: param -> keyword pencarian.
+		// Output: string hasil pencarian.
 		string searchLogs(string param){
-			string key, message, temp,today;
+			string key, message, temp, today;
 			
 			stringstream ss(param);
 			getline(ss,key,' ');
@@ -383,7 +402,8 @@ class LogManager{
 			return message;
 		}
 		
-		// menampilkan list log yg sudah terururt
+		// Menampilkan seluruh log yang sudah terurut berdasarkan waktu.
+		// Output: string list log yang sudah diformat.
 		string listLogs(){
 			string message;
 			
@@ -404,7 +424,8 @@ class LogManager{
 		 	return message;
 		}
 		
-		// fungsi untuk export log ke file json/ fokus ke menu beda dengan fungsi sebelumnya
+		// Mengekspor seluruh data log ke file JSON dengan nama khusus per ID client.
+		// Output: string pesan sukses atau error.
 		string exportJSON(){
 			string message;
 			
@@ -415,7 +436,8 @@ class LogManager{
 			return message;
 		}
 		
-		// menampilkan list database
+		// Menampilkan data pengguna dari database (RFID dan nama).
+		// Output: string list user.
 		string database(){
 			string message;
 			message = "List anggota yg terdaftar\n";
@@ -433,12 +455,15 @@ class LogManager{
 			return message;
 		}
 		
-		//menghapus semua list log saat ini		
+		// Menghapus seluruh log yang tersimpan di memori dan file biner.
+		// Output: string pemberitahuan penghapusan.		
 		string clear(){
 			string message;
 			logs.clear();
 			
-			FILE* file = fopen("logsBiner.bin", "wb");
+			string nameFile = "logsBiner"+ID_client+".bin";
+			
+			FILE* file = fopen(nameFile.c_str(), "wb");
 			
 		    if (file) {
 		        fclose(file);
@@ -448,7 +473,8 @@ class LogManager{
 			return message;
 		}
 		
-		// menampilkkan list perintah yg tersedia
+		// Menampilkan daftar perintah/menu yang tersedia untuk client.
+		// Output: string berisi deskripsi command yang tersedia.
 		string help() {
 		    string message =
 		        "List Request:\n\n"
@@ -464,7 +490,9 @@ class LogManager{
 		    return message;
 		}
 		
-		// method main yg memproses semua menu yg akan dipilih user		
+		// Fungsi utama untuk memproses input dari client.
+		// Param: recvMessage -> string dari client berisi perintah dan opsional data.
+		// Output: string hasil pemrosesan perintah.		
 		string processRequest(string recvMessage){
 			string request, param, sendMessage;
 			
@@ -496,15 +524,16 @@ class LogManager{
 		}		
 };
 
-//class 3 syetem server dan cliengt
+// =======================
+// Class AttendanceSystem
+// Sistem utama yang mengatur komunikasi client-server,
+// proses pembacaan RFID, dan integrasi LogManager.
+// =======================
 class AttendanceSystem{
-//	private:
-//		// atribut
-//		vector<Log> logsGlobal;
-//		
 	public:
 		
-		// fungsi yang digunakkan untuk menangani suatu client, nantinya setiap clianet yg terhubung  server akan menjalankan fungsi ini untuk tiap clientnya
+		// Fungsi untuk menangani koneksi tiap client.
+		// Fungsi ini akan dijalankan pada thread terpisah untuk setiap client yang terhubung.
 		void clientPort(SOCKET client_socket){
 			int  recv_size;
 		    char messageRecv[100], ID_client[5];
@@ -550,7 +579,7 @@ class AttendanceSystem{
 			
 		}
 		
-		// membuat socket untuk server
+		// Fungsi untuk membuat socket server.
 		SOCKET makeSocket(){
 			WSADATA wsa;
 		    SOCKET listen_socket;
@@ -590,7 +619,8 @@ class AttendanceSystem{
 		    return listen_socket;
 		}
 		
-		// metod server proses, functin yg akan stanby untuk mendengarkan dan menerima clinet, setlah itu akan mmenjalankan thread agar mendukung mutithreading
+		// Metode utama server yang akan standby menunggu koneksi client.
+		// Setelah client terkoneksi, server akan membuat thread baru untuk setiap client (multithreading).
 		void ServerProses(){
 			struct sockaddr_in client;
 			int c = sizeof(struct sockaddr_in);
@@ -622,12 +652,13 @@ class AttendanceSystem{
 		
 };
 
-// main function
+// Fungsi utama program Server
+// Inisialisasi sistem dan menjalankan loop utama
 int main() {
-	//intialisasi class uatama
+	// Inisialisasi objek utama sistem absensi
 	AttendanceSystem As;
 	
-	//menjalankan server dan stdanbya menunggu client
+	// Menjalankan proses server dan standby menunggu client untuk terhubung
 	As.ServerProses();	
     return 0;
 }

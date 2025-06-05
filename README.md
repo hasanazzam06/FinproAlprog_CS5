@@ -132,10 +132,6 @@ Pengelola utama data log dan database user.
 
 Server utama yang menangani koneksi client dan menjalankan multithreading.
 
-**Atribut**
-
-- `vector<Log> logsGlobal` — (opsional) menyimpan log global server.
-
 **Method**
 
 - `clientPort(SOCKET client_socket)`
@@ -154,7 +150,7 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
 
 - `ServerProses()` 
   - membuat Socket dengan `makeSocket()`
-  - Menjalankan server standby menerima koneksi client.
+  - Menjalankan server  dan standby untuk menerima koneksi client.
   - Untuk setiap client baru, buat thread baru menjalankan `clientPort()`.
   - Mendukung multithreading agar server dapat melayani banyak client bersamaan.
 
@@ -180,7 +176,27 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
 * Mendukung perintah `ADD_LOG` dengan timestamp otomatis
 
 ### Struktur Kode
+- `openSerialPort(const char* portName)`
+  - Membuka koneksi ke port serial (`COMxx`) menggunakan `CreateFileA`.
+  - Mengatur parameter komunikasi serial:
+    - Baud rate: 9600
+    - Byte size: 8
+    - Stop bit: 1
+    - Parity: none
+  - Mengatur timeout pembacaan serial melalui `SetCommTimeouts`.
+  - Mengembalikan `HANDLE` port jika sukses, atau `INVALID_HANDLE_VALUE` jika gagal.
 
+-  `readUIDFromArduino(SOCKET server_socket)`
+   - Membuka koneksi ke Arduino melalui `openSerialPort()`.
+   - Loop berjalan selama `keepReading == true`.
+   - Membaca data dari Arduino menggunakan `ReadFile()`.
+   - Membersihkan karakter `\r` dan `\n` dari UID.
+   - Jika UID valid:
+     - Format pesan: `ADD_LOG <uid> <timestamp>`
+     - Kirim ke server melalui socket (`send()`).
+   - Delay 300ms antar pembacaan data serial.
+   - Menutup port serial setelah selesai (`CloseHandle()`).
+  
 - `clientInitial()`
   - Inisialisasi Winsock.
   - Membuat socket.
@@ -221,17 +237,7 @@ Server utama yang menangani koneksi client dan menjalankan multithreading.
 
 ---
 
-## 4. Catatan Teknis
-
-* Server harus berjalan lebih dulu
-* Banyak client bisa terkoneksi dan kirim data bersamaan
-* Data disimpan persistensi dalam file biner dan JSON
-* Multithreading mencegah blocking antar client
-* Sorting log menggunakan insertion sort yang efisien untuk data semi-terurut
-
----
-
-## 5. Flowchart Server
+## 4. Flowchart Server
 
 ```mermaid
 flowchart TD
@@ -267,33 +273,35 @@ flowchart TD
 
 ```
 
-## 6. Flowchart Client
+## 5. Flowchart Client
 
 
 ```mermaid
 flowchart TD
-    A[Start Server] --> B[Initialize Winsock]
+    A[Start Client] --> B[Initialize Winsock]
     B --> C[Create Socket]
     C --> D[Connect ke Server]
     D --> E[Kirim ID Client ke Server]
-    E --> F[Terima Pesan 
-    Sambutan Server]
-    F --> G[Loop Input Perintah 
-    dari User]
-    G --> H[Ubah Perintah 
-    ke Huruf Kapital]
-    H --> I[Perintah == ADD_LOG? ]
+    E --> F[Start Thread: Baca UID dari Arduino]
+    F --> G1{UID Terdeteksi?}
+    G1 -- Yes --> H1[Format ADD_LOG <uid> <timestamp>]
+    H1 --> I1[Kirim ke Server lewat Socket]
+    G1 -- No --> F
+    I1 --> F
+    I1 --> L
+
+    E --> G[Loop Input Perintah dari User]
+    G --> H[Ubah Perintah ke Huruf Kapital]
+    H --> I[Perintah == ADD_LOG?]
     I -- Yes --> J[Tambahkan Timestamp ke Perintah]
     I -- No --> K[Gunakan Perintah Apa Adanya]
-  
     J --> L[Kirim Perintah ke Server]
     K --> L
-    L --> M[Terima Respons 
-    dari Server]
-    M --> N[Tampilkan Respons 
-    ke User]
-    N --> O{Perintah = SHUTDOWN?}
+    L --> M[Terima Respons dari Server]
+    M --> N[Tampilkan Respons ke User]
+    N --> O{Perintah == SHUTDOWN?}
     O -- Yes --> P[Tutup Socket & Cleanup Winsock]
     O -- No --> G
+
 ```
 
